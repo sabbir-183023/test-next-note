@@ -1,11 +1,13 @@
-"use client";
+// app/components/Notes.tsx 
+
+'use client'
 
 import React, { useState, useEffect, useRef } from "react";
-import { addNote, getNotes, updateNote, deleteNote } from "@/app/actions/noteActions";
 
 interface Note {
   $id: string;
   $createdAt: string;
+  $updatedAt?: string;
   content: string;
 }
 
@@ -39,12 +41,19 @@ const Notes = () => {
   const fetchNotes = async () => {
     try {
       setLoading(true);
-      const fetchedNotes = await getNotes();
-      setNotes(fetchedNotes);
+      const response = await fetch('/api/notes');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch notes');
+      }
+      
+      const data = await response.json();
+      setNotes(data);
       setError(null);
     } catch (err) {
       console.error("Error fetching notes:", err);
-      setError("Failed to load notes");
+      setError(err instanceof Error ? err.message : "Failed to load notes");
     } finally {
       setLoading(false);
     }
@@ -57,13 +66,26 @@ const Notes = () => {
     
     try {
       setSavingLoad(true);
-      const newNote = await addNote(note.trim());
+      const response = await fetch('/api/notes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: note.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save note');
+      }
+      
+      const newNote = await response.json();
       setNotes([newNote, ...notes]);
       setNote("");
       setError(null);
     } catch (error) {
       console.error("Error adding note:", error);
-      setError("Failed to save note");
+      setError(error instanceof Error ? error.message : "Failed to save note");
     } finally {
       setSavingLoad(false);
     }
@@ -80,7 +102,23 @@ const Notes = () => {
     if (!editingNote || editContent.trim() === "") return;
 
     try {
-      const updatedNote = await updateNote(editingNote.$id, editContent.trim());
+      const response = await fetch('/api/notes', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          noteId: editingNote.$id,
+          content: editContent.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update note');
+      }
+      
+      const updatedNote = await response.json();
       setNotes(notes.map(note => 
         note.$id === updatedNote.$id ? updatedNote : note
       ));
@@ -89,20 +127,28 @@ const Notes = () => {
       setError(null);
     } catch (error) {
       console.error("Error updating note:", error);
-      setError("Failed to update note");
+      setError(error instanceof Error ? error.message : "Failed to update note");
     }
   };
 
   const handleDelete = async (noteId: string) => {
     if (confirm("Are you sure you want to delete this note?")) {
       try {
-        await deleteNote(noteId);
+        const response = await fetch(`/api/notes?id=${noteId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete note');
+        }
+        
         setNotes(notes.filter(note => note.$id !== noteId));
         setOpenMenuId(null);
         setError(null);
       } catch (error) {
         console.error("Error deleting note:", error);
-        setError("Failed to delete note");
+        setError(error instanceof Error ? error.message : "Failed to delete note");
       }
     }
   };
@@ -142,7 +188,7 @@ const Notes = () => {
               <h2 className="text-2xl font-bold mb-4 text-gray-800">Edit Note</h2>
               <form onSubmit={handleUpdate}>
                 <textarea
-                  className="w-full px-4  text-gray-800 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                  className="w-full px-4 text-gray-800 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
                   rows={4}
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
