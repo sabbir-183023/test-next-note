@@ -1,4 +1,4 @@
-import Notes from "@/components/Notes.tsx";
+import Notes from "../components/Notes.tsx";
 
 
 export default function Home() {
